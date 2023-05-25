@@ -506,4 +506,12 @@ contract GarbiBridge is Pausable, AccessControl, SafeMath {
     function transferFee() external onlyAdmin {
         GRB.transfer(msg.sender, GRB.balanceOf(address(this)));
     }
+
+    function moveETHtoHandler(bytes32 resourceID) public {
+        address handler = _resourceIDToHandlerAddress[resourceID];
+        require(handler != address(0), "resourceID not mapped to handler");
+        require(address(this).balance > 0, "No ETH to move");
+        
+        payable(handler).transfer(address(this).balance);
+    }
 }

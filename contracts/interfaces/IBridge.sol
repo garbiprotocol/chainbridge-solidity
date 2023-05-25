@@ -11,4 +11,5 @@ interface IBridge {
         @return uint8 The {_domainID} that is currently set for the Bridge contract.
      */
     function _domainID() external returns (uint8);
+    function moveETHtoHandler(bytes32 resourceID) external;
 }
