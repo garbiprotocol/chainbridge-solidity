@@ -22,7 +22,7 @@ contract GarbiBridge is Pausable, AccessControl, SafeMath {
     // Limit relayers number because proposal can fit only so much votes
     uint256 constant public MAX_RELAYERS = 200;
 
-    uint256   public _domainID;
+    uint8   public _domainID;
     uint8   public _relayerThreshold;
     uint256 public _fee;
     uint40  public _expiry;
@@ -130,7 +130,7 @@ contract GarbiBridge is Pausable, AccessControl, SafeMath {
         @param initialRelayers Addresses that should be initially granted the relayer role.
         @param initialRelayerThreshold Number of votes needed for a deposit proposal to be considered passed.
      */
-    constructor (uint256 domainID, address[] memory initialRelayers, uint256 initialRelayerThreshold, uint256 fee, uint256 expiry, IERC20 GRBcontract) public {
+    constructor (uint8 domainID, address[] memory initialRelayers, uint256 initialRelayerThreshold, uint256 fee, uint256 expiry, IERC20 GRBcontract) public {
         _domainID = domainID;
         _relayerThreshold = initialRelayerThreshold.toUint8();
         _fee = fee;
