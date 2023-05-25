@@ -64,7 +64,7 @@ module.exports = {
     'truffle-plugin-verify'
   ],
   api_keys: {
-    arbiscan: 'QN9HMKDU185J8AA8NBZAP1UHVFIV4XACMX'
+    arbiscan: 'BFEZXPYQGAJWU7KQMISXFFE421IHP4AY1V' //nova BFEZXPYQGAJWU7KQMISXFFE421IHP4AY1V
   },
 
   networks: {

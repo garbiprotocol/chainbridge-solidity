@@ -10,19 +10,21 @@ import "./interfaces/IDepositExecute.sol";
 import "./interfaces/IERCHandler.sol";
 import "./interfaces/IGenericHandler.sol";
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 /**
     @title Facilitates deposits, creation and voting of deposit proposals, and deposit executions.
     @author ChainSafe Systems.
  */
-contract Bridge is Pausable, AccessControl, SafeMath {
+contract GarbiBridge is Pausable, AccessControl, SafeMath {
     using SafeCast for *;
 
     // Limit relayers number because proposal can fit only so much votes
     uint256 constant public MAX_RELAYERS = 200;
 
-    uint8   public _domainID;
+    uint256   public _domainID;
     uint8   public _relayerThreshold;
-    uint128 public _fee;
+    uint256 public _fee;
     uint40  public _expiry;
 
     enum ProposalStatus {Inactive, Active, Passed, Executed, Cancelled}
@@ -42,6 +44,8 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     mapping(address => bool) public isValidForwarder;
     // destinationDomainID + depositNonce => dataHash => Proposal
     mapping(uint72 => mapping(bytes32 => Proposal)) private _proposals;
+
+    IERC20 public GRB;
 
     event RelayerThresholdChanged(uint256 newThreshold);
     event RelayerAdded(address relayer);
@@ -126,10 +130,10 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         @param initialRelayers Addresses that should be initially granted the relayer role.
         @param initialRelayerThreshold Number of votes needed for a deposit proposal to be considered passed.
      */
-    constructor (uint8 domainID, address[] memory initialRelayers, uint256 initialRelayerThreshold, uint256 fee, uint256 expiry) public {
+    constructor (uint256 domainID, address[] memory initialRelayers, uint256 initialRelayerThreshold, uint256 fee, uint256 expiry, IERC20 GRBcontract) public {
         _domainID = domainID;
         _relayerThreshold = initialRelayerThreshold.toUint8();
-        _fee = fee.toUint128();
+        _fee = fee;
         _expiry = expiry.toUint40();
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
@@ -137,6 +141,13 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         for (uint256 i; i < initialRelayers.length; i++) {
             grantRole(RELAYER_ROLE, initialRelayers[i]);
         }
+
+        GRB = GRBcontract;
+    }
+
+    function setGRBContract(IERC20 newGRBcontract) public onlyAdmin {
+        require(address(newGRBcontract) != address(0), 'INVALID_DATA');
+        GRB = newGRBcontract;
     }
 
     /**
@@ -322,7 +333,7 @@ contract Bridge is Pausable, AccessControl, SafeMath {
      */
     function adminChangeFee(uint256 newFee) external onlyAdmin {
         require(_fee != newFee, "Current fee is equal to new fee");
-        _fee = newFee.toUint128();
+        _fee = newFee;
     }
 
     /**
@@ -350,7 +361,8 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         - GenericHandler: responds with the raw bytes returned from the call to the target contract.
      */
     function deposit(uint8 destinationDomainID, bytes32 resourceID, bytes calldata data) external payable whenNotPaused {
-        require(msg.value == _fee, "Incorrect fee supplied");
+        //get the fee in GRB
+        GRB.transferFrom(msg.sender, address(this), _fee);
 
         address handler = _resourceIDToHandlerAddress[resourceID];
         require(handler != address(0), "resourceID not mapped to handler");
@@ -491,15 +503,7 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         emit ProposalEvent(domainID, depositNonce, ProposalStatus.Executed, dataHash);
     }
 
-    /**
-        @notice Transfers eth in the contract to the specified addresses. The parameters addrs and amounts are mapped 1-1.
-        This means that the address at index 0 for addrs will receive the amount (in WEI) from amounts at index 0.
-        @param addrs Array of addresses to transfer {amounts} to.
-        @param amounts Array of amonuts to transfer to {addrs}.
-     */
-    function transferFunds(address payable[] calldata addrs, uint[] calldata amounts) external onlyAdmin {
-        for (uint256 i = 0; i < addrs.length; i++) {
-            addrs[i].transfer(amounts[i]);
-        }
+    function transferFee() external onlyAdmin {
+        GRB.transfer(msg.sender, GRB.balanceOf(address(this)));
     }
 }
