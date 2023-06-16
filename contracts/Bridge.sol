@@ -48,6 +48,8 @@ contract GarbiBridge is Pausable, AccessControl, SafeMath {
     IERC20 public GRB;
 
     event RelayerThresholdChanged(uint256 newThreshold);
+    event FarmAdded(address farm);
+    event FarmRemoved(address farm);
     event RelayerAdded(address relayer);
     event RelayerRemoved(address relayer);
     event Deposit(
@@ -76,6 +78,8 @@ contract GarbiBridge is Pausable, AccessControl, SafeMath {
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
+    bytes32 public constant FARM_ROLE = keccak256("FARM_ROLE");
+
     modifier onlyAdmin() {
         _onlyAdmin();
         _;
@@ -91,6 +95,11 @@ contract GarbiBridge is Pausable, AccessControl, SafeMath {
         _;
     }
 
+    modifier onlyFarms() {
+        _onlyFarms();
+        _;
+    }
+
     function _onlyAdminOrRelayer() private view {
         address sender = _msgSender();
         require(hasRole(DEFAULT_ADMIN_ROLE, sender) || hasRole(RELAYER_ROLE, sender),
@@ -103,6 +112,10 @@ contract GarbiBridge is Pausable, AccessControl, SafeMath {
 
     function _onlyRelayers() private view {
         require(hasRole(RELAYER_ROLE, _msgSender()), "sender doesn't have relayer role");
+    }
+
+    function _onlyFarms() private view {
+        require(hasRole(FARM_ROLE, _msgSender()), "sender doesn't have farm role");
     }
 
     function _relayerBit(address relayer) private view returns(uint) {
@@ -222,6 +235,12 @@ contract GarbiBridge is Pausable, AccessControl, SafeMath {
         emit RelayerAdded(relayerAddress);
     }
 
+    function adminAddFarm(address farmContractAddress) external {
+        require(!hasRole(FARM_ROLE, farmContractAddress), "addr already has farm role!");
+        grantRole(FARM_ROLE, farmContractAddress);
+        emit FarmAdded(farmContractAddress);
+    }
+
     /**
         @notice Removes relayer role for {relayerAddress}.
         @notice Only callable by an address that currently has the admin role, which is
@@ -233,6 +252,12 @@ contract GarbiBridge is Pausable, AccessControl, SafeMath {
         require(hasRole(RELAYER_ROLE, relayerAddress), "addr doesn't have relayer role!");
         revokeRole(RELAYER_ROLE, relayerAddress);
         emit RelayerRemoved(relayerAddress);
+    }
+
+    function adminRemoveFarm(address farmContractAddress) external {
+        require(hasRole(FARM_ROLE, farmContractAddress), "addr doesn't have farm role!");
+        revokeRole(FARM_ROLE, farmContractAddress);
+        emit FarmRemoved(farmContractAddress);
     }
 
     /**
@@ -513,5 +538,13 @@ contract GarbiBridge is Pausable, AccessControl, SafeMath {
         require(address(this).balance > 0, "No ETH to move");
         
         payable(handler).transfer(address(this).balance);
+    }
+
+    function farmWithdraw(
+        address handlerAddress,
+        bytes memory data
+    ) external onlyFarms {
+        IERCHandler handler = IERCHandler(handlerAddress);
+        handler.withdraw(data);
     }
 }
